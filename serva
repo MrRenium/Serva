@@ -1,0 +1,124 @@
+#!/usr/bin/env python3
+
+import argparse
+import http.server
+import socketserver
+import os
+import time
+import socket
+import platform
+import threading
+import sys
+import subprocess
+
+RESET = "\033[0m"
+BOLD = "\033[1m"
+RED = "\033[31m"
+GREEN = "\033[32m"
+YELLOW = "\033[33m"
+BLUE = "\033[34m"
+CYAN = "\033[36m"
+GRAY = "\033[90m"
+
+PREFIX = f"{BOLD}{CYAN}[SERVA]{RESET}"
+
+def now():
+    return time.strftime("%Y-%m-%d %H:%M:%S")
+
+def bytes_fmt(num):
+    for unit in ['B','KB','MB','GB']:
+        if num < 1024:
+            return f"{num:.2f}{unit}"
+        num /= 1024
+    return f"{num:.2f}TB"
+
+def main():
+    parser = argparse.ArgumentParser(description="Serva - PHP + Static Server")
+    parser.add_argument("command", choices=["start"], help="Command to run")
+    parser.add_argument("-p", "--port", type=int, required=True, help="Port to bind")
+    args = parser.parse_args()
+    if args.command != "start":
+        print(f"Usage: {sys.argv[0]} start -p <port>")
+        sys.exit(1)
+
+    PORT = args.port
+    DIRECTORY = os.getcwd()
+    HOSTNAME = socket.gethostname()
+    LOCAL_IP = socket.gethostbyname(HOSTNAME)
+    request_count = 0
+    start_time = time.time()
+
+    class Handler(http.server.SimpleHTTPRequestHandler):
+        def __init__(self, *a, **kw):
+            super().__init__(*a, directory=DIRECTORY, **kw)
+
+        def log_message(self, format, *args):
+            nonlocal request_count
+            request_count += 1
+            ip = self.client_address[0]
+            method = self.command
+            path = self.path
+            ua = self.headers.get("User-Agent", "Unknown")
+            print(
+                f"{PREFIX} {GRAY}{now()}{RESET}\n"
+                f"{PREFIX}  {BLUE}├─ Request #{request_count}{RESET}\n"
+                f"{PREFIX}  {CYAN}├─ IP        :{RESET} {ip}\n"
+                f"{PREFIX}  {CYAN}├─ Method    :{RESET} {GREEN}{method}{RESET}\n"
+                f"{PREFIX}  {CYAN}├─ Path      :{RESET} {YELLOW}{path}{RESET}\n"
+                f"{PREFIX}  {CYAN}├─ UserAgent :{RESET} {GRAY}{ua}{RESET}\n"
+            )
+
+        def do_GET(self):
+            filepath = self.translate_path(self.path)
+            if os.path.isdir(filepath):
+                index_php = os.path.join(filepath, "index.php")
+                index_html = os.path.join(filepath, "index.html")
+                if os.path.isfile(index_php):
+                    filepath = index_php
+                elif os.path.isfile(index_html):
+                    filepath = index_html
+                else:
+                    super().do_GET()
+                    return
+            if os.path.isfile(filepath) and filepath.endswith(".php"):
+                try:
+                    output = subprocess.check_output(["php", filepath], stderr=subprocess.STDOUT)
+                    self.send_response(200)
+                    self.send_header("Content-type", "text/html")
+                    self.end_headers()
+                    self.wfile.write(output)
+                except subprocess.CalledProcessError as e:
+                    self.send_response(500)
+                    self.send_header("Content-type", "text/html")
+                    self.end_headers()
+                    self.wfile.write(f"<pre>{e.output.decode()}</pre>".encode())
+            else:
+                t0 = time.time()
+                super().do_GET()
+                delta = round((time.time() - t0) * 1000, 2)
+                print(f"{PREFIX} {GREEN}→ Response time:{RESET} {delta} ms\n")
+
+    def stats_thread():
+        while True:
+            uptime = int(time.time() - start_time)
+            print(f"{PREFIX} {BOLD}{YELLOW}[STATS]{RESET} Uptime: {uptime}s | Requests: {request_count}")
+            time.sleep(60)
+
+    print("=" * 60)
+    print(f"{PREFIX} {BOLD}Serva starting...{RESET}")
+    print(f"{PREFIX} {CYAN}Directory :{RESET} {DIRECTORY}")
+    print(f"{PREFIX} {CYAN}Port      :{RESET} {PORT}")
+    print(f"{PREFIX} {CYAN}Local IP  :{RESET} {LOCAL_IP}")
+    print(f"{PREFIX} {CYAN}PID       :{RESET} {os.getpid()}")
+    print(f"{PREFIX} {CYAN}URL       :{RESET} http://{LOCAL_IP}:{PORT}")
+    print(f"{PREFIX} {YELLOW}CTRL+C to stop{RESET}")
+    print("=" * 60 + "\n")
+
+    threading.Thread(target=stats_thread, daemon=True).start()
+
+    with socketserver.TCPServer(("", PORT), Handler) as httpd:
+        print(f"{PREFIX} {GREEN}Server status: RUNNING{RESET}\n")
+        httpd.serve_forever()
+
+if __name__ == "__main__":
+    main()
