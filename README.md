@@ -37,4 +37,4 @@
 4. And to log in to the local server using a browser
 ```http://localhost/```
 
-- Thank you!
+Thank you!
