@@ -4,37 +4,37 @@
 
 ## Installation
 
-1. Create directory
-```mkdir serva```
-and
+1. Create directory with 
+```mkdir serva‍‍‍```
+ and 
 ```cd serva```
 
-3. Download Serva
+3. Download Serva with 
 ```git clone https://github.com/MrRenium/Serva.git```
 
-4. Config Serva
+4. Config Serva with 
 ```sudo mv serva /usr/local/bin```
-and
+ and 
 ```sudo chmod +x /usr/local/bin/serva```
 
 - Now you have successfully installed Serva on your Linux system
 
-## Example running Serva
-- Make directory for your host
+## Usage
+1. Make directory for your host with 
 ```mkdir test```
-and
+ and 
 ```cd test```
 
-- Now create one HTML file for example
+2. Now create one HTML file for example use 
 ```nano index.html```
-and put this code in your HTML file
+ and put this code in your HTML file 
 ```<h1>Hello world!</h1>```
 
-- Start the local server with Serva
+3. Start the local server with Serva with 
 ```serva start -p 80```
-This command creates a local server on port 80 in the directory you are in.
+- This command creates a local server on port 80 in the directory you are in.
 
-- And to log in to the local server using a browser
+4. And to log in to the local server using a browser
 ```http://localhost/```
 
-## Thank you!
+- Thank you!
